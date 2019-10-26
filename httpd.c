@@ -102,18 +102,57 @@ void not_found(int fd) {
     send(fd, buf, strlen(buf), 0);
 }
 
-void headers(int fd, char *file_type, long file_size) {
+void headers(int fd, char *file_type) {
 
     char buf[1024];
 
     strcpy(buf, "HTTP/1.0 200 ok\r\n");
-
     sprintf(buf, "%s%s", buf, SERVER_STRING);
     sprintf(buf, "%sContent-type: %s\r\n", buf, file_type);
-//    sprintf(buf, "%sContent-length: %ld\r\n", buf, file_size);
-
     sprintf(buf, "%s\r\n", buf);
     send(fd, buf, strlen(buf), 0);
+}
+
+void cat_file(int fd, FILE *file) {
+    char buf[1024];
+    do {
+        fgets(buf, sizeof(buf), file);
+        send(fd, buf, strlen(buf), 0);
+    } while (!feof(file));
+}
+
+char *file_type(char *path) {
+    char c;
+    size_t length = strlen(path);
+    size_t src_len = length;
+    do {
+        c = path[--src_len];
+    } while (length > 0 && c != '.');
+
+    char type[1024];
+    int idx = 0;
+    do {
+        type[idx++] = path[++src_len];
+    } while (src_len < length);
+    if(idx == 1) type[0] = '\0';
+
+    char *result = "text/html";
+    if (strcmp(type, "css") == 0) {
+        result = "text/css; charset=utf-8";
+    } else if (strcmp(type, "js") == 0) {
+        result = "application/javascript";
+    } else if (strcmp(type, "png") == 0) {
+        result = "image/png";
+    } else if (strcmp(type, "jpg") == 0) {
+        result = "image/jpeg";
+    } else if (strcmp(type, "svg") == 0) {
+        result = "image/svg+xml";
+    } else if (strcmp(type, "ttf") == 0) {
+        result = "font/ttf";
+    } else if (strcmp(type, "ico") == 0) {
+        result = "image/x-icon";
+    }
+    return result;
 }
 
 void serve_file(int fd, char *path) {
@@ -122,17 +161,8 @@ void serve_file(int fd, char *path) {
     if (file == NULL) {
         not_found(fd);
     } else {
-
-        fseek(file, 0L, SEEK_END);
-        long size = ftell(file);
-
-        headers(fd, "text/html", size);
-
-        char buf[1024];
-        do {
-            fgets(buf, sizeof(buf), file);
-            send(fd, buf, sizeof(buf), 0);
-        } while (!feof(file));
+        headers(fd, file_type(path));
+        cat_file(fd, file);
     }
     fclose(file);
 }
@@ -157,9 +187,9 @@ void execute_get(int fd, char *url, char *p, char *query) {
         strcat(path, "/index.html");
 
     // 判断是否是可执行文件
-    if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH)) {
-        cgi = 1;
-    }
+//    if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH)) {
+//        cgi = 1;
+//    }
 
     if (cgi == 1) {
         // todo: execute cgi
