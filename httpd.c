@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 
 #define SERVER_STRING "Server: TinyHttpd/0.1.0\r\n"
+#define SERVER_HELP "usage: httpd [-p <port>] [-d <http serve root directory>]"
 
 char *document = ".";
 
@@ -262,9 +263,7 @@ int startup(int *port) {
     return httpd;
 }
 
-int main() {
-    int port = 2233;
-
+void _main(int port) {
     int sock = startup(&port);
     printf("httpd running on port %d\n", port);
 
@@ -285,8 +284,29 @@ int main() {
         if (pthread_create(&newThread, NULL, (void *)accept_request, (void *)(intptr_t)client_sock) != 0 )
             perror("accept request pthread create error!");
     }
-
     // close(sock);
+}
+
+int main(int argc, char *argv[]) {
+
+    int port = 2233;
+
+    int i = 0;
+    do {
+        char *arg = argv[i++];
+        if (strcmp(arg, "-h") == 0) {
+            printf(SERVER_HELP);;
+            return 0;
+        }
+        if (strcmp(arg, "-p") == 0) {
+            port = atoi(argv[i]);
+        }
+        if (strcmp(arg, "-d") == 0) {
+            document = argv[i];
+        }
+    } while (i < argc);
+
+    _main(port);
 
     return 0;
 }
